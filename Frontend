@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram AI Tools</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #3B82F6; /* Tailwind blue-500 */
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Chatbot specific styles */
+        .chatbot-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .chatbot-button {
+            background-color: #3B82F6; /* Blue-500 */
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .chatbot-button:hover {
+            background-color: #2563EB; /* Blue-600 */
+            transform: scale(1.05);
+        }
+
+        .chat-window {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            width: 320px;
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: translateY(10px); /* Small offset for animation */
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease-out;
+            position: absolute; /* Changed from fixed to absolute within container */
+            bottom: 80px; /* Position above the main button */
+            right: 0;
+            left: unset; /* Ensure left is not set initially */
+            top: unset; /* Ensure top is not set initially */
+        }
+
+        .chat-window.open {
+            transform: translateY(0);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .chat-header {
+            background-color: #4F46E5; /* Indigo-600 */
+            color: white;
+            padding: 1rem;
+            font-weight: 600;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: grab; /* Indicates draggable */
+        }
+
+        .chat-header:active {
+            cursor: grabbing; /* Indicates active dragging */
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 0.5rem 0.75rem;
+            border-radius: 10px;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background-color: #DBEAFE; /* Blue-100 */
+            color: #1E40AF; /* Blue-800 */
+        }
+
+        .bot-message {
+            align-self: flex-start;
+            background-color: #F3F4F6; /* Gray-100 */
+            color: #374151; /* Gray-700 */
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 1rem;
+            border-top: 1px solid #E5E7EB; /* Gray-200 */
+        }
+
+        .chat-input {
+            flex-grow: 1;
+            border: 1px solid #D1D5DB; /* Gray-300 */
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-size: 0.9rem;
+            outline: none;
+            margin-right: 0.5rem;
+        }
+
+        .send-button {
+            background-color: #4F46E5; /* Indigo-600 */
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .send-button:hover {
+            background-color: #4338CA; /* Indigo-700 */
+        }
+
+        /* New styles for options modal and history window */
+        .options-modal, .chat-history-window {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            width: 200px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            position: absolute; /* Absolute within chatbot-container */
+            bottom: 80px;
+            right: 0;
+            transform: translateY(10px);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease-out;
+        }
+        .chat-history-window {
+            width: 320px; /* Same width as main chat window */
+            height: 400px;
+            padding: 0; /* Override padding from options-modal */
+            overflow: hidden;
+        }
+
+        .options-modal.open, .chat-history-window.open {
+            transform: translateY(0);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .option-button {
+            background-color: #6366F1; /* Indigo-500 */
+            color: white;
+            padding: 0.75rem;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+        .option-button:hover {
+            background-color: #4F46E5; /* Indigo-600 */
+        }
+        .close-options-btn { /* For options modal close button */
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #9CA3AF; /* Gray-400 */
+            cursor: pointer;
+        }
+        .close-options-btn:hover {
+            color: #4B5563; /* Gray-600 */
+        }
+        .chat-history-window .chat-messages {
+            /* Inherits chat-messages styling, no special override needed for scroll */
+            padding: 1rem; /* Re-add padding that was removed by .chat-history-window */
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-500 to-purple-600 flex min-h-screen">
+    <!-- Sidebar -->
+    <div class="w-64 bg-gray-900 text-white p-6 flex flex-col shadow-lg rounded-r-xl">
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold mb-4">AI Tools</h2>
+            <nav>
+                <ul>
+                    <li class="mb-4">
+                        <button id="showSpamDetectorBtn" class="w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700 transition duration-200 text-lg font-medium bg-gray-700">
+                            Spam Detector ✨
+                        </button>
+                    </li>
+                    <li class="mb-4">
+                        <button id="showImageGeneratorBtn" class="w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700 transition duration-200 text-lg font-medium">
+                            Image Generator 🎨
+                        </button>
+                    </li>
+                    <li class="mb-4">
+                        <button id="showCodeGeneratorBtn" class="w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700 transition duration-200 text-lg font-medium">
+                            Code Generator 💻
+                        </button>
+                    </li>
+                    <li class="mb-4">
+                        <button id="showCaptionGeneratorBtn" class="w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700 transition duration-200 text-lg font-medium">
+                            Caption Generator ✨
+                        </button>
+                    </li>
+                    <li>
+                        <button id="showHashtagSuggesterBtn" class="w-full text-left py-2 px-4 rounded-lg hover:bg-gray-700 transition duration-200 text-lg font-medium">
+                            Hashtag Suggester #️⃣
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex items-center justify-center p-4">
+        <!-- Instagram Spam Detector Section -->
+        <div id="spamDetectorSection" class="container bg-white p-8 rounded-xl shadow-2xl w-full max-w-md flex flex-col items-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Instagram Spam Detector</h1>
+            <p class="text-gray-600 mb-8 text-center">
+                Enter a potential Instagram comment or message below to see if our Generative AI model detects it as spam.
+            </p>
+
+            <div class="w-full mb-6">
+                <textarea
+                    id="inputText"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 placeholder-gray-400 resize-y min-h-[120px]"
+                    placeholder="e.g., 'Hey check out this amazing offer for free followers! Link in bio!' or 'Great post! Loved reading this.'"
+                    rows="5"
+                ></textarea>
+            </div>
+
+            <button
+                id="detectSpamBtn"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center space-x-2 w-full"
+            >
+                <span id="buttonText">Detect Spam ✨</span>
+                <div id="spinner" class="spinner hidden"></div>
+            </button>
+
+            <div id="resultContainer" class="w-full mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-center hidden">
+                <p id="resultText" class="font-medium"></p>
+            </div>
+
+            <!-- Section for spam explanation -->
+            <div id="explanationContainer" class="w-full mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-gray-800 text-left hidden">
+                <p class="font-semibold text-yellow-700 mb-2">Why it's likely spam:</p>
+                <p id="explanationText" class="text-sm text-yellow-800"></p>
+                <div id="explanationSpinner" class="spinner hidden mt-2 mx-auto"></div>
+            </div>
+
+            <div id="errorMessage" class="w-full mt-4 p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-center hidden">
+                <p id="errorText"></p>
+            </div>
+        </div>
+
+        <!-- Image Generator Section (initially hidden) -->
+        <div id="imageGeneratorSection" class="container bg-white p-8 rounded-xl shadow-2xl w-full max-w-md flex flex-col items-center hidden">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Image Generator</h2>
+            <p class="text-gray-600 mb-8 text-center">
+                Describe the image you want to create, and our Generative AI will bring it to life!
+            </p>
+
+            <div class="w-full mb-6">
+                <textarea
+                    id="imagePrompt"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 placeholder-gray-400 resize-y min-h-[100px]"
+                    placeholder="e.g., 'A cat wearing a wizard hat, casting a spell, digital art'"
+                    rows="4"
+                ></textarea>
+            </div>
+
+            <button
+                id="generateImageBtn"
+                class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center space-x-2 w-full"
+            >
+                <span id="imageButtonText">Generate Image 🎨</span>
+                <div id="imageSpinner" class="spinner hidden"></div>
+            </button>
+
+            <div id="imageResultContainer" class="w-full mt-8 flex justify-center items-center p-4 bg-gray-50 border border-gray-200 rounded-lg hidden flex-col">
+                <img id="generatedImage" src="" alt="Generated Image" class="max-w-full h-auto rounded-lg shadow-md hidden" onerror="this.onerror=null;this.src='https://placehold.co/400x300/e0e0e0/555555?text=Image+Load+Error';" style="max-height: 400px;">
+                <p id="imagePlaceholder" class="text-gray-500 mt-2 hidden">Your generated image will appear here.</p>
+            </div>
+
+            <div id="imageErrorMessage" class="w-full mt-4 p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-center hidden">
+                <p id="imageErrorText"></p>
+            </div>
+        </div>
+
+        <!-- Code Generator Section (initially hidden) -->
+        <div id="codeGeneratorSection" class="container bg-white p-8 rounded-xl shadow-2xl w-full max-w-md flex flex-col items-center hidden">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Code Generator</h2>
+            <p class="text-gray-600 mb-8 text-center">
+                Describe the code you need, and our Generative AI will try to create it for you!
+            </p>
+
+            <div class="w-full mb-6">
+                <textarea
+                    id="codePrompt"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 placeholder-gray-400 resize-y min-h-[100px]"
+                    placeholder="e.g., 'Python function to calculate factorial', 'HTML button with hover effect and text center aligned', 'JavaScript array map example'"
+                    rows="4"
+                ></textarea>
+            </div>
+
+            <button
+                id="generateCodeBtn"
+                class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center space-x-2 w-full"
+            >
+                <span id="codeButtonText">Generate Code 💻</span>
+                <div id="codeSpinner" class="spinner hidden"></div>
+            </button>
+
+            <div id="codeResultContainer" class="w-full mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-left hidden overflow-x-auto">
+                <pre><code id="generatedCode" class="whitespace-pre-wrap"></code></pre>
+            </div>
+
+            <div id="codeErrorMessage" class="w-full mt-4 p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-center hidden">
+                <p id="codeErrorText"></p>
+            </div>
+        </div>
+
+        <!-- New: Caption Generator Section -->
+        <div id="captionGeneratorSection" class="container bg-white p-8 rounded-xl shadow-2xl w-full max-w-md flex flex-col items-center hidden">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Caption Generator</h2>
+            <p class="text-gray-600 mb-8 text-center">
+                Describe your post, and our AI will generate a creative Instagram caption!
+            </p>
+
+            <div class="w-full mb-6">
+                <textarea
+                    id="captionPrompt"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 placeholder-gray-400 resize-y min-h-[100px]"
+                    placeholder="e.g., 'A picture of a sunset over the beach with palm trees'"
+                    rows="4"
+                ></textarea>
+            </div>
+
+            <button
+                id="generateCaptionBtn"
+                class="bg-pink-600 hover:bg-pink-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center space-x-2 w-full"
+            >
+                <span id="captionButtonText">Generate Caption ✨</span>
+                <div id="captionSpinner" class="spinner hidden"></div>
+            </button>
+
+            <div id="captionResultContainer" class="w-full mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-left hidden">
+                <p id="generatedCaption" class="font-medium"></p>
+            </div>
+
+            <div id="captionErrorMessage" class="w-full mt-4 p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-center hidden">
+                <p id="captionErrorText"></p>
+            </div>
+        </div>
+
+        <!-- New: Hashtag Suggester Section -->
+        <div id="hashtagSuggesterSection" class="container bg-white p-8 rounded-xl shadow-2xl w-full max-w-md flex flex-col items-center hidden">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Hashtag Suggester</h2>
+            <p class="text-gray-600 mb-8 text-center">
+                Enter content keywords or a description, and our AI will suggest relevant hashtags!
+            </p>
+
+            <div class="w-full mb-6">
+                <textarea
+                    id="hashtagPrompt"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 placeholder-gray-400 resize-y min-h-[100px]"
+                    placeholder="e.g., 'Food photography, healthy recipes, vegan dessert'"
+                    rows="4"
+                ></textarea>
+            </div>
+
+            <button
+                id="suggestHashtagsBtn"
+                class="bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center space-x-2 w-full"
+            >
+                <span id="hashtagButtonText">Suggest Hashtags #️⃣</span>
+                <div id="hashtagSpinner" class="spinner hidden"></div>
+            </button>
+
+            <div id="hashtagResultContainer" class="w-full mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-left hidden">
+                <p id="suggestedHashtags" class="font-medium"></p>
+            </div>
+
+            <div id="hashtagErrorMessage" class="w-full mt-4 p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-center hidden">
+                <p id="hashtagErrorText"></p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Chatbot Container -->
+    <div class="chatbot-container">
+        <button id="openChatBtn" class="chatbot-button">💬</button>
+
+        <!-- Chatbot Options Modal -->
+        <div id="chatOptionsModal" class="options-modal">
+            <button id="openLiveChatBtn" class="option-button">Live Chat</button>
+            <button id="viewHistoryBtn" class="option-button">View History</button>
+            <button id="closeOptionsBtn" class="close-options-btn">&times;</button>
+        </div>
+
+        <!-- Live Chat Window -->
+        <div id="chatWindow" class="chat-window">
+            <div class="chat-header" id="chatHeader">
+                <span>AI Chatbot</span>
+                <button id="closeChatBtn" class="text-white text-xl leading-none">&times;</button>
+            </div>
+            <div id="chatMessages" class="chat-messages">
+                <!-- Chat messages will be appended here -->
+                <!-- Initial message added by JS after history loads -->
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInput" class="chat-input" placeholder="Type your message...">
+                <button id="sendChatBtn" class="send-button">Send</button>
+            </div>
+            <div id="chatError" class="w-full px-4 py-2 text-sm text-red-700 bg-red-100 hidden"></div>
+        </div>
+
+        <!-- Chat History Window -->
+        <div id="chatHistoryWindow" class="chat-history-window">
+            <div class="chat-header">
+                <span>Chat History</span>
+                <button id="closeHistoryBtn" class="text-white text-xl leading-none">&times;</button>
+            </div>
+            <div id="historyMessages" class="chat-messages">
+                <!-- History messages will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // Sidebar navigation elements
+        const showSpamDetectorBtn = document.getElementById('showSpamDetectorBtn');
+        const showImageGeneratorBtn = document.getElementById('showImageGeneratorBtn');
+        const showCodeGeneratorBtn = document.getElementById('showCodeGeneratorBtn');
+        const showCaptionGeneratorBtn = document.getElementById('showCaptionGeneratorBtn'); // New button
+        const showHashtagSuggesterBtn = document.getElementById('showHashtagSuggesterBtn'); // New button
+
+        const spamDetectorSection = document.getElementById('spamDetectorSection');
+        const imageGeneratorSection = document.getElementById('imageGeneratorSection');
+        const codeGeneratorSection = document.getElementById('codeGeneratorSection');
+        const captionGeneratorSection = document.getElementById('captionGeneratorSection'); // New section
+        const hashtagSuggesterSection = document.getElementById('hashtagSuggesterSection'); // New section
+
+
+        // Spam Detector elements
+        const inputText = document.getElementById('inputText');
+        const detectSpamBtn = document.getElementById('detectSpamBtn');
+        const buttonText = document.getElementById('buttonText');
+        const spinner = document.getElementById('spinner');
+        const resultContainer = document.getElementById('resultContainer');
+        const resultText = document.getElementById('resultText');
+        const explanationContainer = document.getElementById('explanationContainer');
+        const explanationText = document.getElementById('explanationText');
+        const explanationSpinner = document.getElementById('explanationSpinner');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+
+        // Image Generator elements
+        const imagePrompt = document.getElementById('imagePrompt');
+        const generateImageBtn = document.getElementById('generateImageBtn');
+        const imageButtonText = document.getElementById('imageButtonText');
+        const imageSpinner = document.getElementById('imageSpinner');
+        const imageResultContainer = document.getElementById('imageResultContainer');
+        const generatedImage = document.getElementById('generatedImage');
+        const imagePlaceholder = document.getElementById('imagePlaceholder');
+        const imageErrorMessage = document.getElementById('imageErrorMessage');
+        const imageErrorText = document.getElementById('imageErrorText');
+
+        // Code Generator elements
+        const codePrompt = document.getElementById('codePrompt');
+        const generateCodeBtn = document.getElementById('generateCodeBtn');
+        const codeButtonText = document.getElementById('codeButtonText');
+        const codeSpinner = document.getElementById('codeSpinner');
+        const codeResultContainer = document.getElementById('codeResultContainer');
+        const generatedCode = document.getElementById('generatedCode');
+        const codeErrorMessage = document.getElementById('codeErrorMessage');
+        const codeErrorText = document.getElementById('codeErrorText');
+
+        // New: Caption Generator elements
+        const captionPrompt = document.getElementById('captionPrompt');
+        const generateCaptionBtn = document.getElementById('generateCaptionBtn');
+        const captionButtonText = document.getElementById('captionButtonText');
+        const captionSpinner = document.getElementById('captionSpinner');
+        const captionResultContainer = document.getElementById('captionResultContainer');
+        const generatedCaption = document.getElementById('generatedCaption');
+        const captionErrorMessage = document.getElementById('captionErrorMessage');
+        const captionErrorText = document.getElementById('captionErrorText');
+
+        // New: Hashtag Suggester elements
+        const hashtagPrompt = document.getElementById('hashtagPrompt');
+        const suggestHashtagsBtn = document.getElementById('suggestHashtagsBtn');
+        const hashtagButtonText = document.getElementById('hashtagButtonText');
+        const hashtagSpinner = document.getElementById('hashtagSpinner');
+        const hashtagResultContainer = document.getElementById('hashtagResultContainer');
+        const suggestedHashtags = document.getElementById('suggestedHashtags');
+        const hashtagErrorMessage = document.getElementById('hashtagErrorMessage');
+        const hashtagErrorText = document.getElementById('hashtagErrorText');
+
+
+        // Chatbot elements
+        const openChatBtn = document.getElementById('openChatBtn');
+        const chatOptionsModal = document.getElementById('chatOptionsModal');
+        const openLiveChatBtn = document.getElementById('openLiveChatBtn');
+        const viewHistoryBtn = document.getElementById('viewHistoryBtn');
+        const closeOptionsBtn = document.getElementById('closeOptionsBtn');
+        const closeChatBtn = document.getElementById('closeChatBtn');
+        const chatWindow = document.getElementById('chatWindow');
+        const chatHeader = document.getElementById('chatHeader');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendChatBtn = document.getElementById('sendChatBtn');
+        const chatError = document.getElementById('chatError');
+        const chatHistoryWindow = document.getElementById('chatHistoryWindow');
+        const closeHistoryBtn = document.getElementById('closeHistoryBtn');
+        const historyMessages = document.getElementById('historyMessages');
+
+
+        // Chat History (loaded from localStorage)
+        let chatHistory = [];
+
+        // Variables for chatbot dragging
+        let isDragging = false;
+        let initialX;
+        let initialY;
+        let offsetX;
+        let offsetY;
+
+        // --- Persistent Chat History Functions ---
+        function loadChatHistory() {
+            try {
+                const storedHistory = localStorage.getItem('chatbotChatHistory');
+                if (storedHistory) {
+                    chatHistory = JSON.parse(storedHistory);
+                } else {
+                    // Initial message if no history
+                    chatHistory = [{ role: "model", parts: [{ text: "Hi there! How can I help you today?" }] }];
+                }
+            } catch (e) {
+                console.error("Failed to load chat history from localStorage", e);
+                // Fallback to initial message if loading fails
+                chatHistory = [{ role: "model", parts: [{ text: "Hi there! How can I help you today?" }] }];
+            }
+        }
+
+        function saveChatHistory() {
+            try {
+                localStorage.setItem('chatbotChatHistory', JSON.stringify(chatHistory));
+            } catch (e) {
+                console.error("Failed to save chat history to localStorage", e);
+            }
+        }
+
+        function renderChatMessages(targetElement, messages) {
+            targetElement.innerHTML = ''; // Clear existing messages
+            if (messages.length === 0) {
+                targetElement.innerHTML = '<p class="text-gray-500 text-center">No messages yet.</p>';
+                return;
+            }
+            messages.forEach(msg => {
+                if (msg.role === "user" || msg.role === "model") {
+                    const messageText = msg.parts.map(part => part.text).join(' ');
+                    appendMessage(messageText, msg.role === "user" ? 'user' : 'bot', targetElement);
+                }
+            });
+            targetElement.scrollTop = targetElement.scrollHeight; // Scroll to bottom
+        }
+
+        // --- Common Functions ---
+        function showLoading(buttonElem, spinnerElem, resultContainerElem, errorContainerElem, buttonTextElem, loadingText) {
+            buttonTextElem.textContent = loadingText;
+            spinnerElem.classList.remove('hidden');
+            buttonElem.disabled = true;
+            resultContainerElem.classList.add('hidden');
+            if (errorContainerElem) errorContainerElem.classList.add('hidden');
+            // Specific for spam detector's explanation
+            if (resultContainerElem === resultContainer) explanationContainer.classList.add('hidden');
+        }
+
+        function hideLoading(buttonElem, spinnerElem, buttonTextElem, defaultText) {
+            buttonTextElem.textContent = defaultText;
+            spinnerElem.classList.add('hidden');
+            buttonElem.disabled = false;
+        }
+
+        function displayOutput(resultContainerElem, resultTextElem, message, isError = false, isSpam = false) {
+            resultTextElem.textContent = message;
+            resultContainerElem.classList.remove('hidden');
+            if (isError) {
+                resultContainerElem.classList.remove('bg-gray-50', 'border-gray-200', 'bg-green-100', 'border-green-300', 'bg-red-100', 'border-red-300');
+                resultContainerElem.classList.add('bg-red-100', 'border-red-300', 'text-red-700');
+            } else if (isSpam) {
+                resultContainerElem.classList.remove('bg-gray-50', 'border-gray-200', 'bg-green-100', 'border-green-300', 'bg-red-100', 'border-red-300');
+                resultContainerElem.classList.add('bg-red-100', 'border-red-300', 'text-red-700');
+            } else {
+                resultContainerElem.classList.remove('bg-red-100', 'border-red-300', 'bg-gray-50', 'border-gray-200');
+                resultContainerElem.classList.add('bg-green-100', 'border-green-300', 'text-green-700');
+            }
+        }
+
+        function displayError(errorContainerElem, errorTextElem, message) {
+            errorTextElem.textContent = message;
+            errorContainerElem.classList.remove('hidden');
+        }
+
+        async function fetchWithBackoff(url, options, retries = 5, delay = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429) {
+                        console.warn(`Rate limit hit. Retrying in ${delay * Math.pow(2, i)}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+                        continue;
+                    }
+                    return response;
+                } catch (error) {
+                    if (i < retries - 1) {
+                        console.warn(`Fetch error. Retrying in ${delay * Math.pow(2, i)}ms...`, error);
+                        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+            throw new Error('Max retries exceeded');
+        }
+
+        // --- Sidebar Navigation Logic ---
+        function showSection(sectionToShow) {
+            // Hide all sections
+            spamDetectorSection.classList.add('hidden');
+            imageGeneratorSection.classList.add('hidden');
+            codeGeneratorSection.classList.add('hidden');
+            captionGeneratorSection.classList.add('hidden'); // Hide new section
+            hashtagSuggesterSection.classList.add('hidden'); // Hide new section
+
+            // Deactivate all sidebar buttons
+            showSpamDetectorBtn.classList.remove('bg-gray-700');
+            showImageGeneratorBtn.classList.remove('bg-gray-700');
+            showCodeGeneratorBtn.classList.remove('bg-gray-700');
+            showCaptionGeneratorBtn.classList.remove('bg-gray-700'); // Deactivate new button
+            showHashtagSuggesterBtn.classList.remove('bg-gray-700'); // Deactivate new button
+
+
+            // Show the desired section and activate its button
+            if (sectionToShow === 'spam') {
+                spamDetectorSection.classList.remove('hidden');
+                showSpamDetectorBtn.classList.add('bg-gray-700');
+            } else if (sectionToShow === 'image') {
+                imageGeneratorSection.classList.remove('hidden');
+                showImageGeneratorBtn.classList.add('bg-gray-700');
+            } else if (sectionToShow === 'code') {
+                codeGeneratorSection.classList.remove('hidden');
+                showCodeGeneratorBtn.classList.add('bg-gray-700');
+            } else if (sectionToShow === 'caption') { // New: Show caption generator section
+                captionGeneratorSection.classList.remove('hidden');
+                showCaptionGeneratorBtn.classList.add('bg-gray-700');
+            } else if (sectionToShow === 'hashtag') { // New: Show hashtag suggester section
+                hashtagSuggesterSection.classList.remove('hidden');
+                showHashtagSuggesterBtn.classList.add('bg-gray-700');
+            }
+        }
+
+        // Initial load: show spam detector by default
+        showSection('spam');
+
+        showSpamDetectorBtn.addEventListener('click', () => showSection('spam'));
+        showImageGeneratorBtn.addEventListener('click', () => showSection('image'));
+        showCodeGeneratorBtn.addEventListener('click', () => showSection('code'));
+        showCaptionGeneratorBtn.addEventListener('click', () => showSection('caption')); // New event listener
+        showHashtagSuggesterBtn.addEventListener('click', () => showSection('hashtag')); // New event listener
+
+        // --- Spam Detector Logic ---
+        detectSpamBtn.addEventListener('click', async () => {
+            const text = inputText.value.trim();
+            if (!text) {
+                displayError(errorMessage, errorText, 'Please enter some text to analyze.');
+                return;
+            }
+
+            showLoading(detectSpamBtn, spinner, resultContainer, errorMessage, buttonText, 'Detecting...');
+
+            try {
+                const classificationPrompt = `Classify the following Instagram comment/message as "SPAM" or "NOT_SPAM". Provide ONLY one of these two words as the answer. Do not include any other text or punctuation.
+
+Comment: "${text}"
+
+Classification:`;
+
+                let classificationChatHistory = [];
+                classificationChatHistory.push({ role: "user", parts: [{ text: classificationPrompt }] });
+
+                const classificationPayload = {
+                    contents: classificationChatHistory,
+                    generationConfig: {
+                        responseMimeType: "text/plain",
+                        temperature: 0.1,
+                        maxOutputTokens: 256 // Increased from 128 to 256
+                    }
+                };
+
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const classificationResponse = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(classificationPayload)
+                });
+
+                const classificationResult = await classificationResponse.json();
+
+                if (classificationResult.candidates && classificationResult.candidates.length > 0 &&
+                    classificationResult.candidates[0].content && classificationResult.candidates[0].content.parts &&
+                    classificationResult.candidates[0].content.parts.length > 0) {
+                    const rawClassification = classificationResult.candidates[0].content.parts[0].text.trim().toUpperCase();
+
+                    if (rawClassification === "SPAM") {
+                        displayOutput(resultContainer, resultText, 'This content is likely SPAM.', false, true);
+                        showExplanationLoading();
+
+                        const explanationPrompt = `The following Instagram comment/message was classified as SPAM. Explain in a concise sentence or two why it is likely spam, focusing on specific characteristics like suspicious links, generic phrasing, excessive emojis, or promotional language.
+
+Comment: "${text}"
+
+Explanation:`;
+
+                        let explanationChatHistoryForExplanation = [];
+                        explanationChatHistoryForExplanation.push({ role: "user", parts: [{ text: explanationPrompt }] });
+
+                        const explanationPayload = {
+                            contents: explanationChatHistoryForExplanation,
+                            generationConfig: {
+                                responseMimeType: "text/plain",
+                                temperature: 0.2,
+                                maxOutputTokens: 256
+                            }
+                        };
+
+                        const explanationResponse = await fetchWithBackoff(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(explanationPayload)
+                        });
+
+                        const explanationResult = await explanationResponse.json();
+
+                        if (explanationResult.candidates && explanationResult.candidates.length > 0 &&
+                            explanationResult.candidates[0].content && explanationResult.candidates[0].content.parts &&
+                            explanationResult.candidates[0].content.parts.length > 0) {
+                            explanationText.textContent = explanationResult.candidates[0].content.parts[0].text.trim();
+                        } else {
+                            explanationText.textContent = 'Could not generate an explanation for why it is spam.';
+                            console.error('API response for explanation unexpected:', explanationResult);
+                        }
+                        hideExplanationLoading();
+
+                    } else if (rawClassification === "NOT_SPAM") {
+                        displayOutput(resultContainer, resultText, 'This content is likely NOT SPAM.', false, false);
+                        explanationContainer.classList.add('hidden');
+                    } else {
+                        displayOutput(resultContainer, resultText, 'Could not confidently classify. Please try again or refine input.', true);
+                        console.error('Unexpected classification result:', rawClassification);
+                        explanationContainer.classList.add('hidden');
+                    }
+                } else {
+                    displayError(errorMessage, errorText, 'Failed to get a valid classification from the AI. Please try again.');
+                    console.error('API response structure for classification unexpected:', classificationResult);
+                }
+            } catch (error) {
+                displayError(errorMessage, errorText, `An error occurred: ${error.message}. Please check your input or try again later.`);
+                console.error('Fetch error:', error);
+            } finally {
+                hideLoading(detectSpamBtn, spinner, buttonText, 'Detect Spam ✨');
+            }
+        });
+
+        // --- Image Generator Logic ---
+        generateImageBtn.addEventListener('click', async () => {
+            const prompt = imagePrompt.value.trim();
+            if (!prompt) {
+                displayImageError('Please enter a prompt to generate an image.');
+                return;
+            }
+
+            showLoading(generateImageBtn, imageSpinner, imageResultContainer, imageErrorMessage, imageButtonText, 'Generating...');
+
+            try {
+                const payload = {
+                    instances: { prompt: prompt },
+                    parameters: { "sampleCount": 1 }
+                };
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+
+                const response = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+                    const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+                    generatedImage.src = imageUrl;
+                    generatedImage.classList.remove('hidden');
+                    imagePlaceholder.classList.add('hidden');
+                    imageResultContainer.classList.remove('hidden'); // Ensure container is visible
+                    imageResultContainer.classList.remove('bg-red-100', 'border-red-300'); // Clear error styling
+                    imageResultContainer.classList.add('bg-gray-50', 'border-gray-200'); // Default styling
+                } else {
+                    displayImageError('Failed to generate image. Please try a different prompt.');
+                    console.error('Image generation API response unexpected:', result);
+                }
+            } catch (error) {
+                displayImageError(`An error occurred during image generation: ${error.message}.`);
+                console.error('Image generation fetch error:', error);
+            } finally {
+                hideLoading(generateImageBtn, imageSpinner, imageButtonText, 'Generate Image 🎨');
+            }
+        });
+
+        // --- Code Generator Logic ---
+        generateCodeBtn.addEventListener('click', async () => {
+            const prompt = codePrompt.value.trim();
+            if (!prompt) {
+                displayCodeError('Please describe the code you need.');
+                return;
+            }
+
+            showLoading(generateCodeBtn, codeSpinner, codeResultContainer, codeErrorMessage, codeButtonText, 'Generating...');
+
+            try {
+                const codeGenerationPrompt = `Generate code based on the following description. Provide only the code, formatted within a markdown code block (e.g., \`\`\`python\n...\n\`\`\` or \`\`\`html\n...\n\`\`\`). Do not include any additional text or explanations outside the code block.
+
+Description: "${prompt}"
+
+Code:`;
+
+                let codeChatHistory = [];
+                codeChatHistory.push({ role: "user", parts: [{ text: codeGenerationPrompt }] });
+
+                const codePayload = {
+                    contents: codeChatHistory,
+                    generationConfig: {
+                        responseMimeType: "text/plain",
+                        temperature: 0.2,
+                        maxOutputTokens: 8192
+                    }
+                };
+
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const codeResponse = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(codePayload)
+                });
+
+                const codeResult = await codeResponse.json();
+
+                if (codeResult.candidates && codeResult.candidates.length > 0 &&
+                    codeResult.candidates[0].content && codeResult.candidates[0].content.parts &&
+                    codeResult.candidates[0].content.parts.length > 0) {
+                    let generatedText = codeResult.candidates[0].content.parts[0].text.trim();
+
+                    // Extract code from markdown block if present
+                    const codeBlockMatch = generatedText.match(/```(?:\w+)?\n([\s\S]*?)```/);
+                    if (codeBlockMatch && codeBlockMatch[1]) {
+                        generatedText = codeBlockMatch[1].trim();
+                    }
+
+                    generatedCode.textContent = generatedText;
+                    codeResultContainer.classList.remove('hidden');
+                    codeResultContainer.classList.remove('bg-red-100', 'border-red-300'); // Clear error styling
+                    codeResultContainer.classList.add('bg-gray-50', 'border-gray-200'); // Default styling
+                } else {
+                    displayCodeError('Failed to generate code. Please try a different description.');
+                    console.error('Code generation API response unexpected:', codeResult);
+                }
+            } catch (error) {
+                displayCodeError(`An error occurred during code generation: ${error.message}.`);
+                console.error('Code generation fetch error:', error);
+            } finally {
+                hideLoading(generateCodeBtn, codeSpinner, codeButtonText, 'Generate Code 💻');
+            }
+        });
+
+        // --- New: Caption Generator Logic ---
+        generateCaptionBtn.addEventListener('click', async () => {
+            const prompt = captionPrompt.value.trim();
+            if (!prompt) {
+                displayError(captionErrorMessage, captionErrorText, 'Please describe your post to generate a caption.');
+                return;
+            }
+
+            showLoading(generateCaptionBtn, captionSpinner, captionResultContainer, captionErrorMessage, captionButtonText, 'Generating...');
+
+            try {
+                const captionGenerationPrompt = `Generate a creative and engaging Instagram caption (around 20-30 words) for the following description:
+
+Description: "${prompt}"
+
+Caption:`;
+
+                let captionChatHistory = [];
+                captionChatHistory.push({ role: "user", parts: [{ text: captionGenerationPrompt }] });
+
+                const captionPayload = {
+                    contents: captionChatHistory,
+                    generationConfig: {
+                        responseMimeType: "text/plain",
+                        temperature: 0.7, // Higher temperature for creativity
+                        maxOutputTokens: 256
+                    }
+                };
+
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const captionResponse = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(captionPayload)
+                });
+
+                const captionResult = await captionResponse.json();
+
+                if (captionResult.candidates && captionResult.candidates.length > 0 &&
+                    captionResult.candidates[0].content && captionResult.candidates[0].content.parts &&
+                    captionResult.candidates[0].content.parts.length > 0) {
+                    generatedCaption.textContent = captionResult.candidates[0].content.parts[0].text.trim();
+                    displayOutput(captionResultContainer, generatedCaption, generatedCaption.textContent, false, false); // Use displayOutput for styling
+                } else {
+                    displayError(captionErrorMessage, captionErrorText, 'Failed to generate caption. Please try again.');
+                    console.error('Caption generation API response unexpected:', captionResult);
+                }
+            } catch (error) {
+                displayError(captionErrorMessage, captionErrorText, `An error occurred during caption generation: ${error.message}.`);
+                console.error('Caption generation fetch error:', error);
+            } finally {
+                hideLoading(generateCaptionBtn, captionSpinner, captionButtonText, 'Generate Caption ✨');
+            }
+        });
+
+        // --- New: Hashtag Suggester Logic ---
+        suggestHashtagsBtn.addEventListener('click', async () => {
+            const prompt = hashtagPrompt.value.trim();
+            if (!prompt) {
+                displayError(hashtagErrorMessage, hashtagErrorText, 'Please enter content description for hashtags.');
+                return;
+            }
+
+            showLoading(suggestHashtagsBtn, hashtagSpinner, hashtagResultContainer, hashtagErrorMessage, hashtagButtonText, 'Suggesting...');
+
+            try {
+                const hashtagSuggestionPrompt = `Suggest 5-10 relevant and trending Instagram hashtags for the following content description. Provide only the hashtags, separated by spaces, without any other text. Start each hashtag with a '#' symbol.
+
+Description: "${prompt}"
+
+Hashtags:`;
+
+                let hashtagChatHistory = [];
+                hashtagChatHistory.push({ role: "user", parts: [{ text: hashtagSuggestionPrompt }] });
+
+                const hashtagPayload = {
+                    contents: hashtagChatHistory,
+                    generationConfig: {
+                        responseMimeType: "text/plain",
+                        temperature: 0.5,
+                        maxOutputTokens: 512
+                    }
+                };
+
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const hashtagResponse = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(hashtagPayload)
+                });
+
+                const hashtagResult = await hashtagResponse.json();
+
+                if (hashtagResult.candidates && hashtagResult.candidates.length > 0 &&
+                    hashtagResult.candidates[0].content && hashtagResult.candidates[0].content.parts &&
+                    hashtagResult.candidates[0].content.parts.length > 0) {
+                    suggestedHashtags.textContent = hashtagResult.candidates[0].content.parts[0].text.trim();
+                    displayOutput(hashtagResultContainer, suggestedHashtags, suggestedHashtags.textContent, false, false); // Use displayOutput for styling
+                } else {
+                    displayError(hashtagErrorMessage, hashtagErrorText, 'Failed to suggest hashtags. Please try again.');
+                    console.error('Hashtag suggestion API response unexpected:', hashtagResult);
+                }
+            } catch (error) {
+                displayError(hashtagErrorMessage, hashtagErrorText, `An error occurred during hashtag suggestion: ${error.message}.`);
+                console.error('Hashtag suggestion fetch error:', error);
+            } finally {
+                hideLoading(suggestHashtagsBtn, hashtagSpinner, hashtagButtonText, 'Suggest Hashtags #️⃣');
+            }
+        });
+
+
+        // --- Chatbot Logic ---
+
+        // Initially hide all chatbot windows
+        chatOptionsModal.classList.add('hidden');
+        chatWindow.classList.add('hidden');
+        chatHistoryWindow.classList.add('hidden');
+
+        openChatBtn.addEventListener('click', () => {
+            chatOptionsModal.classList.toggle('open');
+            chatWindow.classList.remove('open');
+            chatHistoryWindow.classList.remove('open');
+        });
+
+        closeOptionsBtn.addEventListener('click', () => {
+            chatOptionsModal.classList.remove('open');
+        });
+
+        openLiveChatBtn.addEventListener('click', () => {
+            chatOptionsModal.classList.remove('open');
+            chatHistoryWindow.classList.remove('open');
+            chatWindow.classList.add('open');
+            renderChatMessages(chatMessages, chatHistory);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            chatInput.focus();
+            if (!isDragging && !chatWindow.style.left && !chatWindow.style.top) {
+                chatWindow.style.removeProperty('left');
+                chatWindow.style.removeProperty('top');
+                chatWindow.style.right = '0';
+                chatWindow.style.bottom = '80px';
+            }
+        });
+
+        viewHistoryBtn.addEventListener('click', () => {
+            chatOptionsModal.classList.remove('open');
+            chatWindow.classList.remove('open');
+            chatHistoryWindow.classList.add('open');
+            renderChatMessages(historyMessages, chatHistory);
+        });
+
+        // Corrected: Added 'click' event type
+        closeChatBtn.addEventListener('click', () => {
+            chatWindow.classList.remove('open');
+            chatWindow.style.removeProperty('left');
+            chatWindow.style.removeProperty('top');
+            chatWindow.style.right = '0';
+            chatWindow.style.bottom = '80px';
+        });
+
+        closeHistoryBtn.addEventListener('click', () => {
+            chatHistoryWindow.classList.remove('open');
+        });
+
+        // Draggable Chatbot Window (only applies to chatWindow)
+        chatHeader.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            initialX = e.clientX;
+            initialY = e.clientY;
+
+            const rect = chatWindow.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+
+            chatWindow.style.position = 'fixed';
+            chatWindow.style.right = 'unset';
+            chatWindow.style.bottom = 'unset';
+            chatWindow.style.transition = 'none';
+            chatWindow.style.cursor = 'grabbing';
+
+            chatWindow.style.left = `${rect.left}px`;
+            chatWindow.style.top = `${rect.top}px`;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            let newX = e.clientX - offsetX;
+            let newY = e.clientY - offsetY;
+
+            const bodyWidth = document.body.offsetWidth;
+            const bodyHeight = document.body.offsetHeight;
+            const chatWidth = chatWindow.offsetWidth;
+            const chatHeight = chatWindow.offsetHeight;
+
+            newX = Math.max(0, newX);
+            newY = Math.min(newY, bodyHeight - chatHeight);
+
+            chatWindow.style.left = `${newX}px`;
+            chatWindow.style.top = `${newY}px`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            chatWindow.style.transition = 'all 0.3s ease-out';
+            chatWindow.style.cursor = 'grab';
+        });
+
+        function appendMessage(text, sender, targetElement = chatMessages) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            if (sender === 'user') {
+                messageDiv.classList.add('user-message');
+            } else {
+                messageDiv.classList.add('bot-message');
+            }
+            messageDiv.textContent = text;
+            targetElement.appendChild(messageDiv);
+            targetElement.scrollTop = targetElement.scrollHeight;
+            return messageDiv;
+        }
+
+        async function sendMessage() {
+            const userMessageText = chatInput.value.trim();
+            if (!userMessageText) {
+                return;
+            }
+
+            chatError.classList.add('hidden');
+            chatError.textContent = '';
+
+            chatHistory.push({ role: "user", parts: [{ text: userMessageText }] });
+            appendMessage(userMessageText, 'user');
+            saveChatHistory();
+            chatInput.value = '';
+            chatInput.disabled = true;
+            sendChatBtn.disabled = true;
+
+            const typingIndicator = appendMessage('...', 'bot');
+            typingIndicator.classList.add('spinner-text');
+
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                const payload = { contents: chatHistory };
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const response = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                typingIndicator.remove();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const botResponseText = result.candidates[0].content.parts[0].text;
+                    chatHistory.push({ role: "model", parts: [{ text: botResponseText }] });
+                    appendMessage(botResponseText, 'bot');
+                    saveChatHistory();
+                } else {
+                    appendMessage("Sorry, I couldn't get a response. Please try again.", 'bot');
+                    console.error('Chatbot API response structure unexpected:', result);
+                }
+            } catch (error) {
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+                appendMessage("An error occurred. Please try again later.", 'bot');
+                chatError.textContent = `Error: ${error.message}`;
+                chatError.classList.remove('hidden');
+                console.error('Chatbot fetch error:', error);
+            } finally {
+                chatInput.disabled = false;
+                sendChatBtn.disabled = false;
+                chatInput.focus();
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        sendChatBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Initialize chat history on load
+        loadChatHistory();
+        // Hide all chatbot windows initially except the options modal
+        chatOptionsModal.classList.remove('hidden');
+        chatWindow.classList.add('hidden');
+        chatHistoryWindow.classList.add('hidden');
+    </script>
+</body>
+</html>
