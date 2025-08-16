@@ -1,0 +1,70 @@
+// server.js
+
+// Import necessary modules
+const express = require('express');
+const cors = require('cors'); // Import the cors middleware
+const app = express();
+const port = 3000; // The port your backend server will listen on
+
+// Middleware
+// Enable CORS for all origins. In a production environment, you should restrict this
+// to only your frontend's domain for security.
+app.use(cors());
+// Enable Express to parse JSON bodies from incoming requests
+app.use(express.json());
+
+// Basic route for the root URL
+app.get('/', (req, res) => {
+    res.send('Instagram AI Backend is running!');
+});
+
+// POST endpoint for spam detection
+// This endpoint will receive text from your frontend, simulate a spam score,
+// and send it back.
+app.post('/detect-spam', (req, res) => {
+    const { text } = req.body; // Extract the 'text' field from the request body
+
+    // Basic validation
+    if (!text) {
+        return res.status(400).json({ error: 'Text content is required for spam detection.' });
+    }
+
+    // --- Simulate Spam Detection Logic ---
+    // In a real application, you would integrate your AI model here.
+    // For this example, we'll use a simple rule-based simulation to generate a score.
+    let spamScore = 0;
+    const lowerCaseText = text.toLowerCase();
+
+    if (lowerCaseText.includes('free followers') || lowerCaseText.includes('buy likes')) {
+        spamScore += 50;
+    }
+    if (lowerCaseText.includes('link in bio') || lowerCaseText.includes('check my profile')) {
+        spamScore += 30;
+    }
+    if (lowerCaseText.includes('crypto') || lowerCaseText.includes('investment opportunity')) {
+        spamScore += 40;
+    }
+    if (lowerCaseText.length < 10) { // Very short comments might be suspicious
+        spamScore += 10;
+    }
+    // You could also integrate a call to the Gemini API here if this were a proxy
+    // but for this demo, we're assuming the frontend handles the direct AI call.
+
+    // Determine if it's spam based on the score threshold
+    const isSpam = spamScore >= 60; // Example threshold
+
+    // Send back the simulated result
+    res.json({
+        text: text,
+        spamScore: spamScore,
+        isSpam: isSpam,
+        message: isSpam ? 'Detected as SPAM by backend simulation.' : 'Detected as NOT SPAM by backend simulation.'
+    });
+});
+
+// Start the server
+app.listen(port, () => {
+    console.log(`Server listening at http://localhost:${port}`);
+    console.log('Backend ready to receive requests.');
+});
+
